@@ -1,0 +1,52 @@
+/* Complemento do style.css: janela lateral, formulários e listas de registros */
+.page-intro{width:min(1160px,90%);margin:0 auto;padding:56px 0 20px;display:flex;align-items:center;justify-content:space-between;gap:30px}
+.page-intro h1{font-size:clamp(2rem,3.6vw,3rem);line-height:1.15;letter-spacing:-1px;margin-bottom:12px}
+.page-intro p:not(.eyebrow){color:var(--muted);max-width:600px}
+.main-nav a.atual{color:var(--green-dark)}
+button.button{border:0;cursor:pointer;font-family:inherit;font-size:1rem}
+button.button-outline{border:1px solid var(--green-dark)}
+
+.fundo{position:fixed;inset:0;background:rgba(23,62,69,.5);opacity:0;visibility:hidden;transition:opacity .25s;z-index:99}
+.fundo.ativo{opacity:1;visibility:visible}
+.painel{position:fixed;top:0;right:0;height:100%;width:430px;max-width:100%;background:var(--white);
+  padding:28px 26px 32px;transform:translateX(100%);transition:transform .3s;z-index:100;overflow-y:auto;
+  visibility:hidden;box-shadow:-12px 0 32px rgba(30,127,140,.15)}
+.painel.aberto{transform:none;visibility:visible}
+.painel h2{font-size:1.45rem;margin:6px 0 4px}
+.painel .painel-sub{color:var(--muted);font-size:.92rem;margin-bottom:8px}
+.fechar{position:absolute;top:14px;right:14px;width:36px;height:36px;border:0;border-radius:10px;
+  background:var(--soft-green);color:var(--green-dark);font-size:1.1rem;cursor:pointer}
+.fechar:hover{background:#d6efe9}
+.fechar:focus-visible,.button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--green-light);outline-offset:2px}
+
+.campo{margin-top:14px}
+.campo label{display:block;font-size:.85rem;font-weight:700;margin-bottom:5px}
+.campo input,.campo select,.campo textarea{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--page);color:var(--text);font:inherit}
+.campo .erro{display:none;color:#b3402f;font-size:.8rem;margin-top:4px}
+.campo.invalido input,.campo.invalido select,.campo.invalido textarea{border-color:#b3402f}
+.campo.invalido .erro{display:block}
+.painel form .button{width:100%;margin-top:22px}
+.aviso{display:none;margin-top:16px;padding:13px 15px;border-radius:12px;background:var(--soft-green);
+  color:var(--green-dark);font-weight:700;font-size:.92rem}
+.aviso.ativo{display:block}
+.aviso.erro-geral{background:#fbe9e6;color:#b3402f}
+.lgpd{display:block;margin-top:14px;color:var(--muted);font-size:.78rem}
+
+.registros{padding-top:30px}
+.registros-topo{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.registros-topo h2{font-size:1.5rem}
+.lista{display:grid;gap:14px}
+.registro{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 22px;
+  background:var(--white);border:1px solid var(--border);border-radius:16px;box-shadow:0 5px 18px rgba(30,127,140,.04)}
+.registro h3{font-size:1.02rem;margin-bottom:3px}
+.registro p{color:var(--muted);font-size:.88rem}
+.registro .destaque{color:var(--green-dark);font-weight:700}
+.registro button{border:1px solid var(--border);background:var(--white);color:#b3402f;border-radius:9px;
+  padding:7px 12px;font:700 .82rem Arial,sans-serif;cursor:pointer}
+.registro button:hover{background:#fbe9e6}
+.vazio{padding:26px;text-align:center;color:var(--muted);background:var(--white);border:1px dashed var(--border);border-radius:16px}
+.button-pequeno{padding:9px 14px;font-size:.88rem}
+
+@media (max-width:900px){.page-intro{flex-direction:column;align-items:flex-start;padding-top:40px}}
+@media (prefers-reduced-motion:reduce){.painel,.fundo{transition:none}}

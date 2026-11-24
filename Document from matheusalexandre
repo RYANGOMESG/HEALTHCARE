@@ -1,0 +1,277 @@
+// end.js - JavaScript geral: janela lateral + registro de agendamentos e contatos
+(function () {
+  'use strict';
+
+  /* ---------- Página inicial: consultas recentes ---------- */
+  var recentes = document.getElementById('lista-recentes');
+  if (recentes) {
+    var salvos = [];
+    try { salvos = JSON.parse(localStorage.getItem('saudemais_agendamentos')) || []; } catch (e) {}
+    salvos.sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); });
+    salvos = salvos.slice(0, 3);
+    if (!salvos.length) {
+      var vazio = document.createElement('div');
+      vazio.className = 'vazio';
+      vazio.textContent = 'Você ainda não tem consultas. Toque em "Agendar consulta" para marcar a primeira.';
+      recentes.appendChild(vazio);
+    }
+    salvos.forEach(function (r) {
+      var p = r.data.split('-');
+      var card = document.createElement('div'); card.className = 'registro';
+      var info = document.createElement('div');
+      var t = document.createElement('h3'); t.textContent = r.servico;
+      var d = document.createElement('p'); d.className = 'destaque'; d.textContent = p[2] + '/' + p[1] + '/' + p[0] + ' às ' + r.hora;
+      var n = document.createElement('p'); n.textContent = r.nome;
+      info.appendChild(t); info.appendChild(d); info.appendChild(n);
+      card.appendChild(info); recentes.appendChild(card);
+    });
+  }
+
+  var painel = document.getElementById('painel-lateral');
+  var fundo = document.getElementById('fundo-painel');
+  var form = document.getElementById('form-registro');
+  if (!painel || !form) return;
+
+  var tipo = form.dataset.tipo; // "agendamento" ou "contato"
+  var CHAVE = tipo === 'agendamento' ? 'saudemais_agendamentos' : 'saudemais_contatos';
+  var aviso = document.getElementById('aviso');
+  var lista = document.getElementById('lista-registros');
+  var ultimoBotao = null;
+
+  /* ---------- Armazenamento ---------- */
+  function ler() {
+    try { return JSON.parse(localStorage.getItem(CHAVE)) || []; }
+    catch (e) { return []; }
+  }
+  function gravar(registros) {
+    try { localStorage.setItem(CHAVE, JSON.stringify(registros)); return true; }
+    catch (e) { return false; }
+  }
+
+  /* ---------- Janela lateral ---------- */
+  function abrir() {
+    painel.classList.add('aberto');
+    fundo.classList.add('ativo');
+    painel.setAttribute('aria-hidden', 'false');
+    aviso.className = 'aviso';
+    var primeiro = form.querySelector('input');
+    if (primeiro) primeiro.focus();
+  }
+  function fechar() {
+    painel.classList.remove('aberto');
+    fundo.classList.remove('ativo');
+    painel.setAttribute('aria-hidden', 'true');
+    if (ultimoBotao) ultimoBotao.focus();
+  }
+  document.querySelectorAll('[data-abrir-painel]').forEach(function (b) {
+    b.addEventListener('click', function () { ultimoBotao = b; abrir(); });
+  });
+  painel.querySelector('.fechar').addEventListener('click', fechar);
+  fundo.addEventListener('click', fechar);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && painel.classList.contains('aberto')) fechar();
+  });
+
+  /* ---------- Utilitários ---------- */
+  function hojeISO() {
+    var d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  }
+  function formatarData(iso) {
+    var p = iso.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+  function formatarDataHora(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' às ' +
+      d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function telefoneValido(t) {
+    var n = t.replace(/\D/g, '');
+    return n.length === 10 || n.length === 11;
+  }
+  function emailValido(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+  function marcar(nome, ok) {
+    var campo = form.elements[nome].closest('.campo');
+    campo.classList.toggle('invalido', !ok);
+    return ok;
+  }
+  function el(tag, texto, classe) {
+    var e = document.createElement(tag);
+    if (texto) e.textContent = texto;
+    if (classe) e.className = classe;
+    return e;
+  }
+
+  /* ---------- Horários do agendamento ---------- */
+  var HORARIOS = [];
+  for (var h = 8; h <= 17; h++) {
+    HORARIOS.push((h < 10 ? '0' : '') + h + ':00');
+    HORARIOS.push((h < 10 ? '0' : '') + h + ':30');
+  }
+
+  function atualizarHorarios() {
+    var data = form.elements.data.value;
+    var sel = form.elements.hora;
+    sel.innerHTML = '';
+    if (!data) { sel.appendChild(new Option('Escolha a data primeiro', '')); return; }
+
+    var ocupados = ler().filter(function (r) { return r.data === data; })
+                        .map(function (r) { return r.hora; });
+    var agora = new Date();
+    var minutosAgora = agora.getHours() * 60 + agora.getMinutes();
+    var disponiveis = HORARIOS.filter(function (hr) {
+      if (ocupados.indexOf(hr) !== -1) return false;
+      if (data === hojeISO()) {
+        var p = hr.split(':');
+        if (+p[0] * 60 + +p[1] <= minutosAgora) return false;
+      }
+      return true;
+    });
+
+    if (!disponiveis.length) { sel.appendChild(new Option('Sem horários neste dia', '')); return; }
+    sel.appendChild(new Option('Selecione', ''));
+    disponiveis.forEach(function (hr) { sel.appendChild(new Option(hr, hr)); });
+  }
+
+  if (tipo === 'agendamento') {
+    form.elements.data.min = hojeISO();
+    form.elements.data.addEventListener('change', atualizarHorarios);
+  }
+
+  /* ---------- Validação ---------- */
+  function validar() {
+    var f = form.elements;
+    var ok = true;
+    ok = marcar('nome', f.nome.value.trim().length >= 3) && ok;
+
+    if (tipo === 'agendamento') {
+      ok = marcar('telefone', telefoneValido(f.telefone.value)) && ok;
+      ok = marcar('email', !f.email.value.trim() || emailValido(f.email.value.trim())) && ok;
+      ok = marcar('servico', !!f.servico.value) && ok;
+      ok = marcar('data', !!f.data.value && f.data.value >= hojeISO()) && ok;
+      ok = marcar('hora', !!f.hora.value) && ok;
+    } else {
+      var tel = f.telefone.value.trim(), mail = f.email.value.trim();
+      var contatoOk = (tel && telefoneValido(tel)) || (mail && emailValido(mail));
+      ok = marcar('telefone', !tel || telefoneValido(tel)) && ok;
+      ok = marcar('email', !mail || emailValido(mail)) && ok;
+      if (!tel && !mail) {
+        marcar('telefone', false); marcar('email', false);
+        ok = false;
+      } else if (!contatoOk) { ok = false; }
+      ok = marcar('assunto', !!f.assunto.value) && ok;
+      ok = marcar('mensagem', f.mensagem.value.trim().length >= 5) && ok;
+    }
+    return ok;
+  }
+
+  /* ---------- Envio / registro ---------- */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    aviso.className = 'aviso';
+    if (!validar()) return;
+
+    var f = form.elements;
+    var registro = { id: Date.now().toString(36), criadoEm: new Date().toISOString(),
+                     nome: f.nome.value.trim(), telefone: f.telefone.value.trim(),
+                     email: f.email.value.trim() };
+
+    if (tipo === 'agendamento') {
+      registro.servico = f.servico.value;
+      registro.data = f.data.value;
+      registro.hora = f.hora.value;
+      registro.obs = f.obs.value.trim();
+      var conflito = ler().some(function (r) { return r.data === registro.data && r.hora === registro.hora; });
+      if (conflito) {
+        aviso.textContent = 'Esse horário acabou de ser ocupado. Escolha outro.';
+        aviso.className = 'aviso erro-geral ativo';
+        atualizarHorarios();
+        return;
+      }
+    } else {
+      registro.assunto = f.assunto.value;
+      registro.mensagem = f.mensagem.value.trim();
+    }
+
+    var registros = ler();
+    registros.push(registro);
+    if (!gravar(registros)) {
+      aviso.textContent = 'Não foi possível salvar. Verifique se o navegador permite armazenamento.';
+      aviso.className = 'aviso erro-geral ativo';
+      return;
+    }
+
+    aviso.textContent = tipo === 'agendamento'
+      ? 'Agendamento registrado para ' + formatarData(registro.data) + ' às ' + registro.hora + '.'
+      : 'Mensagem registrada! Retornaremos em breve.';
+    aviso.className = 'aviso ativo';
+    form.reset();
+    if (tipo === 'agendamento') atualizarHorarios();
+    desenharLista();
+  });
+
+  /* ---------- Lista de registros ---------- */
+  function desenharLista() {
+    var registros = ler();
+    if (tipo === 'agendamento') {
+      registros.sort(function (a, b) { return (a.data + a.hora).localeCompare(b.data + b.hora); });
+    } else {
+      registros.sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); });
+    }
+    lista.innerHTML = '';
+    if (!registros.length) {
+      lista.appendChild(el('div', tipo === 'agendamento'
+        ? 'Nenhum agendamento ainda. Toque em "Agendar consulta" para começar.'
+        : 'Nenhuma mensagem enviada ainda.', 'vazio'));
+      return;
+    }
+    registros.forEach(function (r) {
+      var card = el('div', '', 'registro');
+      var info = el('div');
+      if (tipo === 'agendamento') {
+        info.appendChild(el('h3', r.servico));
+        info.appendChild(el('p', formatarData(r.data) + ' às ' + r.hora, 'destaque'));
+        info.appendChild(el('p', r.nome + ' · ' + r.telefone));
+        if (r.obs) info.appendChild(el('p', 'Obs.: ' + r.obs));
+      } else {
+        info.appendChild(el('h3', r.assunto));
+        info.appendChild(el('p', r.mensagem));
+        info.appendChild(el('p', r.nome + ' · ' + (r.telefone || r.email) + ' · ' + formatarDataHora(r.criadoEm)));
+      }
+      var btn = el('button', tipo === 'agendamento' ? 'Cancelar' : 'Excluir');
+      btn.type = 'button';
+      btn.addEventListener('click', function () {
+        if (!confirm('Remover este registro?')) return;
+        gravar(ler().filter(function (x) { return x.id !== r.id; }));
+        desenharLista();
+        if (tipo === 'agendamento') atualizarHorarios();
+      });
+      card.appendChild(info);
+      card.appendChild(btn);
+      lista.appendChild(card);
+    });
+  }
+
+  /* ---------- Exportar CSV ---------- */
+  var exportar = document.getElementById('exportar');
+  if (exportar) exportar.addEventListener('click', function () {
+    var registros = ler();
+    if (!registros.length) { alert('Não há registros para baixar.'); return; }
+    var colunas = Object.keys(registros[0]);
+    var linhas = [colunas.join(';')].concat(registros.map(function (r) {
+      return colunas.map(function (c) {
+        return '"' + String(r[c] == null ? '' : r[c]).replace(/"/g, '""') + '"';
+      }).join(';');
+    }));
+    var blob = new Blob(['\ufeff' + linhas.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = tipo + 's.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  desenharLista();
+})();
